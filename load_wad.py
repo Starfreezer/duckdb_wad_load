@@ -103,7 +103,6 @@ def load_linedef_lump(lump, wad, map_id):
     print(f"{LOAD_LINEDEF_LUMP_TAG} num_linedefs: {num_members}")
 
     for i in range(num_members):
-        # <7h meaning: Read 7 little-endian signed 16-bit integers from
         linedef = Linedef(
                 map_id= map_id,
                 index= i, 
