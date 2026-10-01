@@ -1,3 +1,4 @@
+from os import wait
 import struct
 from dataclasses import dataclass
 import duckdb
@@ -39,7 +40,6 @@ class Lump:
     size:   int
     index:  int
 
-#https://doom.fandom.com/wiki/Linedef
 @dataclass 
 class Linedef:
     map_id:        int
@@ -51,7 +51,7 @@ class Linedef:
     sector_tag:    int
     right_sidedef: int
     left_sidedef:  int
-# https://doom.fandom.com/wiki/Sidedef
+
 @dataclass 
 class Sidedef:
     map_id:              int
@@ -62,7 +62,7 @@ class Sidedef:
     name_lower_texture:  str 
     name_middle_texture: str
     faces_sector:        int
-# https://doom.fandom.com/wiki/Vertex
+
 @dataclass 
 class Vertex:
     map_id: int
@@ -82,7 +82,6 @@ class Map:
 # Map name format ExMy
 # x can take on values from 1 to 4 
 # y can take on values from 1 to 9
-# There shareware DOOM1.WAD contains levels E1M1 to E1M9
 def compute_map_names():
     for i in range(1,5):
         for j in range(1,10):
@@ -105,6 +104,7 @@ def load_linedef_lump(lump, wad, map_id):
     print(f"{LOAD_LINEDEF_LUMP_TAG} num_linedefs: {num_members}")
 
     for i in range(num_members):
+        # <7h meaning: Read 7 little-endian signed 16-bit integers from
         linedef = Linedef(
                 map_id= map_id,
                 index= i, 
@@ -166,7 +166,7 @@ def load_vertex_lump(lump,wad,map_id):
 
     return vertices
 
-        
+
 
 
 
@@ -174,44 +174,27 @@ def load_vertex_lump(lump,wad,map_id):
 ###############################################################################
 
 compute_map_names()
-# https://doom.fandom.com/wiki/WAD
+
 with open("DOOM1.WAD","rb") as wad:
-    # Extract header, byte order little endian
+    # Extract header, byter order little endian
     identification = wad.read(4).decode("ascii")
     num_lumps = struct.unpack(LE_32_U, wad.read(4))[0]
     table_offsets = struct.unpack(LE_32_U, wad.read(4))[0]
 
     print(f"{LUMP_TAG} Loading {identification}\nnum_lumps:{num_lumps}")
 
-    wad.seek(table_offsets) # Lump directory starts here
-    
-    # WAD lump directory entry (16 bytes total):
-    # 0x00-0x03: file position of lump data
-    # 0x04-0x07: lump size in bytes
-    # 0x08-0x0F: 8-byte ASCII lump name, null-padded on the right
+    wad.seek(table_offsets)
+
+
     for i in range(num_lumps):
         file_pos = struct.unpack(LE_32_U, wad.read(4))[0]
         lump_size = struct.unpack(LE_32_U, wad.read(4))[0]
-        # Remove null padding
-        lump_name = wad.read(8).rstrip(b"\x00").decode("ascii", errors="replace") 
+        lump_name = wad.read(8).rstrip(b"\x00").decode("ascii", errors="replace")
 
         LUMPS.append(Lump(name= lump_name,offset=file_pos,size=lump_size, index = i))
 
     map_lumps = [i for i in LUMPS if i.name in MAP_NAMES]
-    
-    # Once a Map Lump is encountered the order of the following lumps is well
-    # defined.
-    # 1. THINGS (https://doom.fandom.com/wiki/Thing)
-    # 2. LINEDEFS (https://doom.fandom.com/wiki/Linedef)
-    # 3. SIDEDEFS (https://doom.fandom.com/wiki/Sidedef)
-    # 4. VERTEXES (https://doom.fandom.com/wiki/Vertex)
-    # 5. SEGS     (https://doom.fandom.com/wiki/Seg)
-    # 6. SSECTORS (https://doom.fandom.com/wiki/Subsector)
-    # 7. NODES    (https://doom.fandom.com/wiki/Node)
-    # 8. SECTORS  (https://doom.fandom.com/wiki/Sector)
-    # 9. REJECT   (https://doom.fandom.com/wiki/Reject)
-    # 10. BLOCKMAP (https://doom.fandom.com/wiki/Blockmap)
-    # 11. BEHAVIOR  (https://doom.fandom.com/wiki/Behavior)
+
     for map_id, lump in enumerate(map_lumps):
         print(f"{MAP_TAG} loading map {lump.name}")
         things_lump = LUMPS[lump.index + 1]
@@ -326,7 +309,11 @@ con.execute("COMMIT")
 with open("wads.sql", "r") as f:
     query = f.read()
 
-result = con.execute(query).fetchall()
+for map_id, lump in enumerate(map_lumps):
+    print(f"\n{MAP_TAG} drawing map {lump.name}")
 
-for row in result:
-    print(row[0])
+    result = con.execute(query, [map_id]).fetchall()
+
+    for row in result:
+        print(row[0])
+

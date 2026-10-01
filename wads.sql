@@ -22,7 +22,16 @@ WITH wall AS (
 
     CROSS JOIN generate_series(0, 32) AS t(i)
 
-    WHERE l.map_id = 0
+    WHERE l.map_id = ?
+),
+/** Zoom out a bith farther for better visibility, hence the + and - 5 **/
+bounds AS (
+    SELECT
+        min(col) - 5 AS min_col,
+        max(col) + 5 AS max_col,
+        min(row) - 5 AS min_row,
+        max(row) + 5 AS max_row
+    FROM wall
 )
 
 SELECT
@@ -51,9 +60,17 @@ SELECT
         ORDER BY c.col
     )
 
-FROM generate_series(-16, 79) AS c(col)
-CROSS JOIN generate_series(-51, -21) AS r(row)
+FROM bounds b
+
+CROSS JOIN generate_series(
+    CAST(b.min_col AS BIGINT),
+    CAST(b.max_col AS BIGINT)
+) AS c(col)
+
+CROSS JOIN generate_series(
+    CAST(b.min_row AS BIGINT),
+    CAST(b.max_row AS BIGINT)
+) AS r(row)
 
 GROUP BY r.row
 ORDER BY r.row DESC;
-
